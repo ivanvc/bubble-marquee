@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -15,20 +16,53 @@ import (
 type errMsg error
 
 type model struct {
-	marquee  marquee.Model
+	m1       marquee.Model
+	m2       marquee.Model
+	m3       marquee.Model
+	m4       marquee.Model
 	quitting bool
 	err      error
 }
 
 func initialModel() model {
-	m := marquee.New()
-	m.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	m.Text = "testing 1 2 3"
-	return model{marquee: m}
+	m1 := marquee.New()
+	m1.Style = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("205")).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("63"))
+	m1.SetText("Hello World")
+	m1.SetWidth(25)
+	m1.ScrollDirection = marquee.Right
+
+	m2 := marquee.New()
+	m2.Style = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("63")).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderForeground(lipgloss.Color("205"))
+	m2.SetText("Hello World")
+	m2.SetWidth(25)
+	m2.ScrollSpeed = 500 * time.Millisecond
+
+	m3 := marquee.New()
+	m3.Style = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("207"))
+	m3.SetText(fmt.Sprintf("The time is: %s", time.Now().Format("15:04:05")))
+	m3.SetWidth(54)
+	m3.ScrollDirection = marquee.Right
+	m3.ScrollSpeed = 100 * time.Millisecond
+
+	m4 := marquee.New()
+	m4.Style = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("65")).
+		BorderStyle(lipgloss.DoubleBorder()).
+		BorderForeground(lipgloss.Color("205"))
+	m4.SetText("Auto width")
+
+	return model{m1: m1, m2: m2, m3: m3, m4: m4}
 }
 
 func (m model) Init() tea.Cmd {
-	return nil //m.spinner.Tick
+	return tea.Batch(m.m1.Scroll, m.m2.Scroll, m.m3.Scroll, m.m4.Scroll)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -42,14 +76,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+	case marquee.ScrollMsg:
+		var cmds []tea.Cmd
+		var cmd tea.Cmd
+
+		m.m1, cmd = m.m1.Update(msg)
+		cmds = append(cmds, cmd)
+
+		m.m2, cmd = m.m2.Update(msg)
+		cmds = append(cmds, cmd)
+
+		m.m3.SetText(fmt.Sprintf("The time is: %s", time.Now().Format("15:04:05")))
+		m.m3, cmd = m.m3.Update(msg)
+		cmds = append(cmds, cmd)
+
+		m.m4, cmd = m.m4.Update(msg)
+		cmds = append(cmds, cmd)
+		return m, tea.Batch(cmds...)
+
 	case errMsg:
 		m.err = msg
 		return m, nil
 
 	default:
-		var cmd tea.Cmd
-		m.marquee, cmd = m.marquee.Update(msg)
-		return m, cmd
+		return m, nil
 	}
 }
 
@@ -57,7 +107,7 @@ func (m model) View() string {
 	if m.err != nil {
 		return m.err.Error()
 	}
-	str := fmt.Sprintf("\n\n Marquee:\n%s\n\n", m.marquee.View())
+	str := fmt.Sprintf("%s\n%s\n%s\n", lipgloss.JoinHorizontal(lipgloss.Center, m.m1.View(), m.m2.View()), m.m3.View(), m.m4.View())
 	if m.quitting {
 		return str + "\n"
 	}
