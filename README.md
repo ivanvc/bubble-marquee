@@ -4,7 +4,7 @@
 
 A simple [BubbleTea] bubble component to generate marquees.
 
-![Made with VHS](https://vhs.charm.sh/vhs-3kYqJAkAcOZpAlmmLFRE36.gif)
+![Made with VHS](https://vhs.charm.sh/vhs-6jH8qHKl7QYL5vw2RUeMLl.gif)
 
 [BubbleTea]: https://github.com/charmbracelet/bubbletea
 

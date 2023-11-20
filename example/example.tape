@@ -1,6 +1,6 @@
 Output example.gif
 Set Width 930
-Set Height 370
+Set Height 670
 Set Theme "Dracula"
 Set FontFamily "Source Code Pro"
 Set LetterSpacing 1
