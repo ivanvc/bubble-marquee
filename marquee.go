@@ -9,10 +9,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/ansi"
+	"github.com/muesli/termenv"
 )
 
 const defaultScrollSpeed = time.Millisecond * 250
-const defaultDirection = "left"
 
 // Internal ID management. Used during animating to ensure that frame messages
 // are received only by marquee components that sent them.
@@ -81,6 +82,8 @@ type Model struct {
 	textView string
 	// The current text index being displayed
 	textIndex int
+	// The non-printable chars prefix.
+	prefix string
 }
 
 // New creates a new model with default settings.
@@ -99,7 +102,7 @@ func New() Model {
 func (m *Model) SetText(text string) {
 	m.text = text
 	if m.width == 0 {
-		m.SetWidth(len(m.text))
+		m.SetWidth(ansi.PrintableRuneWidth(m.text))
 	}
 	m.resetTextView()
 }
@@ -126,9 +129,28 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return m, nil
 		}
 
-		m.textIndex++
-		if m.textIndex > m.width+len(m.text) {
-			m.textIndex = 0
+		if m.ScrollDirection == Left {
+			m.textIndex++
+			if m.textIndex > m.width+len(m.text) {
+				m.textIndex = 0
+			}
+
+			var index int
+			m.prefix, _, index, _ = m.nonPrintableCharactersBeforeIndex(m.textIndex)
+			if index > m.textIndex {
+				m.textIndex = index
+			}
+		} else {
+			m.textIndex--
+			if m.textIndex < 0 {
+				m.textIndex = m.width + len(m.text)
+			}
+
+			var index int
+			_, m.prefix, _, index = m.nonPrintableCharactersBeforeIndex(m.textIndex)
+			if index < m.textIndex {
+				m.textIndex = index
+			}
 		}
 
 		return m, m.tick(m.id, m.tag)
@@ -178,11 +200,41 @@ func (m Model) tick(id, tag int) tea.Cmd {
 
 // View displays the marquee.
 func (m Model) View() string {
-	var offset int
-	if m.ScrollDirection == Left {
-		offset = m.textIndex
-	} else {
-		offset = m.width + len(m.text) - m.textIndex
+	right := m.textIndex + m.width
+	for ansi.PrintableRuneWidth(m.textView[m.textIndex:right]) < m.width {
+		right++
 	}
-	return m.Style.Render(m.textView[offset : offset+m.width])
+
+	return m.Style.Render(fmt.Sprintf("%s%s%sm", m.prefix, m.textView[m.textIndex:right], termenv.CSI+termenv.ResetSeq))
+}
+
+func (m Model) nonPrintableCharactersBeforeIndex(index int) (string, string, int, int) {
+	var b strings.Builder
+	inModifier := false
+	i := 0
+	prev := len(m.textView)
+	prevString := ""
+	for {
+		c := rune(m.textView[i])
+		if c == ansi.Marker {
+			b.WriteRune(c)
+			inModifier = true
+		} else if inModifier {
+			b.WriteRune(c)
+			if ansi.IsTerminator(c) {
+				inModifier = false
+			}
+		} else {
+			if i <= index {
+				prev = i
+				prevString = b.String()
+			}
+			if i >= index {
+				break
+			}
+		}
+		i++
+	}
+
+	return b.String(), prevString, i, prev
 }

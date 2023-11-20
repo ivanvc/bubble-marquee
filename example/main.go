@@ -20,6 +20,7 @@ type model struct {
 	m2       marquee.Model
 	m3       marquee.Model
 	m4       marquee.Model
+	m5       marquee.Model
 	quitting bool
 	err      error
 }
@@ -58,11 +59,22 @@ func initialModel() model {
 		BorderForeground(lipgloss.Color("205"))
 	m4.SetText("Auto width")
 
-	return model{m1: m1, m2: m2, m3: m3, m4: m4}
+	m5 := marquee.New()
+	m5.Style = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("207")).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderForeground(lipgloss.Color("205"))
+	m5.SetText(lipgloss.NewStyle().Underline(true).Bold(true).
+		SetString("Hello").Render() + " World")
+	//m5.SetText("Hello World")
+	m5.ScrollDirection = marquee.Right
+	m5.SetWidth(10)
+
+	return model{m1: m1, m2: m2, m3: m3, m4: m4, m5: m5}
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(m.m1.Scroll, m.m2.Scroll, m.m3.Scroll, m.m4.Scroll)
+	return tea.Batch(m.m1.Scroll, m.m2.Scroll, m.m3.Scroll, m.m4.Scroll, m.m5.Scroll)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -92,6 +104,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.m4, cmd = m.m4.Update(msg)
 		cmds = append(cmds, cmd)
+
+		m.m5, cmd = m.m5.Update(msg)
+		cmds = append(cmds, cmd)
 		return m, tea.Batch(cmds...)
 
 	case errMsg:
@@ -107,7 +122,7 @@ func (m model) View() string {
 	if m.err != nil {
 		return m.err.Error()
 	}
-	str := fmt.Sprintf("%s\n%s\n%s\n", lipgloss.JoinHorizontal(lipgloss.Center, m.m1.View(), m.m2.View()), m.m3.View(), m.m4.View())
+	str := fmt.Sprintf("%s\n%s\n%s\n%s\n", lipgloss.JoinHorizontal(lipgloss.Center, m.m1.View(), m.m2.View()), m.m3.View(), m.m4.View(), m.m5.View())
 	if m.quitting {
 		return str + "\n"
 	}
