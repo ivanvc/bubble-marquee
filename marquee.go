@@ -84,6 +84,8 @@ type Model struct {
 	textIndex int
 	// The non-printable chars prefix.
 	prefix string
+	// If the text should be continuous.
+	isTextContinuous bool
 }
 
 // New creates a new model with default settings.
@@ -108,8 +110,12 @@ func (m *Model) SetText(text string) {
 }
 
 func (m *Model) resetTextView() {
-	space := strings.Repeat(" ", m.width)
-	m.textView = fmt.Sprintf("%s%s%s", space, m.text, space)
+	if m.isTextContinuous {
+		m.textView = m.text
+	} else {
+		space := strings.Repeat(" ", m.width)
+		m.textView = fmt.Sprintf("%s%s%s", space, m.text, space)
+	}
 }
 
 // Sets marquee width.
@@ -118,6 +124,12 @@ func (m *Model) SetWidth(width int) {
 		return
 	}
 	m.width = width
+	m.resetTextView()
+}
+
+// Sets if the text of the marquee should be continuous.
+func (m *Model) SetContinuous(continuous bool) {
+	m.isTextContinuous = continuous
 	m.resetTextView()
 }
 
@@ -131,7 +143,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 		if m.ScrollDirection == Left {
 			m.textIndex++
-			if m.textIndex > m.width+len(m.text) {
+			if m.textIndex > m.width+len(m.text) || m.isTextContinuous && m.textIndex > len(m.textView) {
 				m.textIndex = 0
 			}
 
@@ -200,12 +212,26 @@ func (m Model) tick(id, tag int) tea.Cmd {
 
 // View displays the marquee.
 func (m Model) View() string {
-	right := m.textIndex + m.width
-	for ansi.PrintableRuneWidth(m.textView[m.textIndex:right]) < m.width {
-		right++
+	var text string
+	if m.isTextContinuous {
+		var b strings.Builder
+		b.WriteString(m.textView[m.textIndex:])
+		for i := 0; ansi.PrintableRuneWidth(b.String()) < m.width; i = (i + 1) % len(m.textView) {
+			b.WriteByte(m.textView[i])
+		}
+		text = b.String()
+		for ansi.PrintableRuneWidth(text) > m.width {
+			text = text[:len(text)-1]
+		}
+	} else {
+		right := m.textIndex + m.width
+		for ansi.PrintableRuneWidth(m.textView[m.textIndex:right]) < m.width {
+			right++
+		}
+		text = m.textView[m.textIndex:right]
 	}
 
-	return m.Style.Render(fmt.Sprintf("%s%s%sm", m.prefix, m.textView[m.textIndex:right], termenv.CSI+termenv.ResetSeq))
+	return m.Style.Render(fmt.Sprintf("%s%s%sm", m.prefix, text, termenv.CSI+termenv.ResetSeq))
 }
 
 func (m Model) nonPrintableCharactersBeforeIndex(index int) (string, string, int, int) {
@@ -214,7 +240,7 @@ func (m Model) nonPrintableCharactersBeforeIndex(index int) (string, string, int
 	i := 0
 	prev := len(m.textView)
 	prevString := ""
-	for {
+	for i < len(m.textView) {
 		c := rune(m.textView[i])
 		if c == ansi.Marker {
 			b.WriteRune(c)

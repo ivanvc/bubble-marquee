@@ -34,6 +34,12 @@ You can also specify the scrolling speed (defaults to 250ms).
 m.ScrollSpeed = 50 * time.Millisecond
 ```
 
+And you can make it continuous:
+
+```go
+m.SetContinuous(true)
+```
+
 Then, call scroll in your `Init()`.
 
 ```go
